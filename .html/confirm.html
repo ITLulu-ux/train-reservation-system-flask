@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}예매 확인{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+  <div class="row h-100">
+
+    <!-- 왼쪽: 예매 확인 영역 -->
+    <div class="col-md-6 d-flex align-items-center justify-content-center bg-white">
+      <div class="w-75">
+        <h2 class="mb-4 text-center">예매 확인</h2>
+        <p><strong>선택 좌석:</strong> <span id="selectedSeatId">{{ seat_id }}</span></p>
+
+        <form method="post" action="/book" id="bookingForm">
+          <input type="hidden" name="seat_id" value="{{ seat_id }}" />
+          <button type="submit" class="btn btn-success w-100 mt-3">예매하기</button>
+        </form>
+
+        <button type="button" class="btn btn-info w-100 mt-2" onclick="speakAnnouncement()">
+          <i class="fas fa-volume-up"></i> 음성 안내 다시 듣기
+        </button>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="alert alert-info mt-3">
+              {% for msg in messages %}
+                {{ msg }}
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+
+    <!-- 오른쪽: 배경 이미지 -->
+    <div class="col-md-6 d-none d-md-block p-0">
+      <div style="
+          height: 100%;
+          width: 100%;
+          background-image: url('https://imgnews.pstatic.net/image/469/2019/07/11/0000404568_001_20190712044704494.jpg?type=w860');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+      "></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Font Awesome 아이콘을 위한 스크립트 (음성 안내 아이콘)
+  // CDN을 통해 Font Awesome을 로드합니다.
+  const loadFontAwesome = () => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';
+    document.head.appendChild(link);
+  };
+  loadFontAwesome();
+
+
+  function speakAnnouncement() {
+    // Flask에서 전달받은 열차 정보와 좌석 ID를 JavaScript 변수로 가져옵니다.
+    const trainNo = "{{ train_details.train_no | e }}";
+    const depStation = "{{ train_details.dep_station | e }}";
+    const arrStation = "{{ train_details.arr_station | e }}";
+    const depTime = "{{ train_details.departure_time | e }}";
+    const arrTime = "{{ train_details.arrival_time | e }}";
+    const seatId = "{{ seat_id | e }}";
+
+    // 음성 안내 메시지 생성
+    // 예: "이 열차는 10시 30분에 서울역을 출발하여 광주송정까지 가는 KTX301 열차입니다. 현재 고객님이 선택하신 좌석번호는 A12번입니다."
+    let announcementText = `
+      이 열차는 ${depTime}에 ${depStation}을 출발하여 ${arrStation}까지 가는 ${trainNo} 열차입니다.
+      현재 고객님이 선택하신 좌석번호는 ${seatId}번입니다.
+      예매를 확정하시려면 '예매하기' 버튼을 눌러주세요.
+    `;
+
+    // Web Speech API 지원 여부 확인
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(announcementText);
+      utterance.lang = 'ko-KR'; // 한국어 설정
+
+      // 음성 선택 (선택 사항: 특정 한국어 음성이 있다면 지정)
+      // let voices = window.speechSynthesis.getVoices();
+      // let koreanVoice = voices.find(voice => voice.lang === 'ko-KR' || voice.name.includes('Korean'));
+      // if (koreanVoice) {
+      //   utterance.voice = koreanVoice;
+      // }
+
+      // 음성 재생
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.warn("이 브라우저는 Web Speech API를 지원하지 않습니다.");
+      // 사용자에게 음성 안내를 들을 수 없음을 알리는 메시지 표시
+      alert("죄송합니다. 이 브라우저에서는 음성 안내 기능을 지원하지 않습니다.");
+    }
+  }
+
+  // 페이지 로드 시 자동으로 음성 안내 시작
+  document.addEventListener('DOMContentLoaded', () => {
+    speakAnnouncement();
+  });
+
+  // 기존 confirmBooking 함수 제거 (confirm() 대화 상자 제거)
+  // 이제 '예매하기' 버튼 클릭 시 바로 폼이 제출됩니다.
+  // function confirmBooking() {
+  //   return confirm("정말 예매하시겠습니까?");
+  // }
+</script>
+{% endblock %}
