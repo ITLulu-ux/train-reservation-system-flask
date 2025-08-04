@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}좌석 선택{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+  <div class="row h-100 align-items-start"> {# align-items-start to keep content at the top #}
+
+    <div class="col-md-7 p-4 bg-white overflow-auto d-flex flex-column align-items-center">
+      <h2 class="mb-4 text-center">{{ train_id }} – 좌석 선택</h2>
+
+      <form id="confirmForm" action="/confirm" method="post" style="display:none;">
+        <input type="hidden" name="seat_id" id="seatInput">
+      </form>
+
+      <div class="train-container mb-4"> {# Added mb-4 for some bottom margin #}
+        {% macro seat_block(key, who) %}
+          {% if who %}
+            {% if who == me %}
+              <div class="seat mine">{{ key }}</div>
+            {% else %}
+              <div class="seat unavailable">{{ key }}</div>
+            {% endif %}
+          {% else %}
+            <div class="seat available" data-seat="{{ key }}">{{ key }}</div>
+          {% endif %}
+        {% endmacro %}
+
+        {% set cols = ['A','B','','C','D','E'] if train_id.startswith('KTX') else ['A','','B','C','D'] %}
+        {% for row in range(1, 11) %}
+          <div class="row">
+            {% for col in cols %}
+              {% if col == '' %}
+                <div class="aisle"></div>
+              {% else %}
+                {% set key = row|string + col %}
+                {{ seat_block(key, seat_status.get(key)) }}
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <p class="text-muted text-center">선택 가능한 좌석을 클릭하여 예매를 진행하세요.</p>
+    </div>
+
+    <div class="col-md-5 p-4 d-flex flex-column bg-light border-start">
+      <h3 class="mb-4 text-center">운임 및 할인 안내</h3>
+      <p class="text-muted text-center">선택하신 열차의 기본 운임과 할인 정보를 확인하세요.</p>
+
+      <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">기본 운임 (성인)</h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text"><strong>성인 운임:</strong> ₩25,000</p> {# Example Adult Fare #}
+          <small class="text-muted">일반적인 성인 승객에게 적용되는 운임입니다.</small>
+        </div>
+      </div>
+
+      <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0">할인 운임</h5>
+        </div>
+        <div class="card-body">
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+              <strong>장애인 할인:</strong> ₩12,500 <span class="badge bg-info">50% 할인</span><br>
+              <small class="text-muted">복지카드 소지 시 할인 적용 (동반 1인 포함)</small>
+            </li>
+            <li class="list-group-item">
+              <strong>어린이 할인 (만 6세 ~ 12세):</strong> ₩17,500 <span class="badge bg-info">30% 할인</span><br>
+              <small class="text-muted">어린이 승객에게 적용되는 할인 운임입니다.</small>
+            </li>
+            <li class="list-group-item">
+              <strong>영유아 할인 (만 6세 미만):</strong> ₩0 <span class="badge bg-info">100% 할인</span><br>
+              <small class="text-muted">좌석 미지정 시 무료 (성인 1명당 영유아 1명)</small>
+              <small class="d-block text-danger mt-1">
+                ※ 좌석 지정 시 ₩6,250 (25% 운임) 부과될 수 있습니다.
+              </small>
+            </li>
+            <li class="list-group-item">
+              <strong>기타 할인:</strong> (예: 경로, 국가유공자 등) 해당 사항 없음<br>
+              <small class="text-muted">추가 할인은 별도 확인이 필요합니다.</small>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="alert alert-warning mt-auto mb-0" role="alert">
+        <h6 class="alert-heading">안내사항</h6>
+        <p class="mb-0">정확한 운임은 승객 정보 입력 및 결제 단계에서 최종 확정됩니다.</p>
+        <p class="mb-0">할인 적용 기준은 코레일 정책에 따릅니다.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  /* 기존 좌석 스타일 */
+  .train-container { display: flex; flex-direction: column; align-items: center; }
+  .row { display: flex; margin: 6px 0; }
+  .seat {
+    width: 40px; height: 40px; margin: 2px;
+    line-height: 40px; text-align: center;
+    border: 1px solid #777; cursor: pointer;
+    border-radius: 4px; /* Slightly rounded corners */
+    font-weight: bold;
+  }
+  .available { background: #90ee90; color: #333; }
+  .unavailable { background: #757575; color: #fff; cursor: not-allowed; }
+  .mine { background: #ffd700; color: #333; }
+  .aisle { width: 20px; }
+
+  /* 새로운 레이아웃을 위한 추가 스타일 */
+  .container-fluid.h-100 {
+    min-height: 100vh; /* Ensure the container takes full viewport height */
+    display: flex;
+    flex-direction: column;
+  }
+  .row.h-100 {
+    flex-grow: 1; /* Allow the row to grow and fill available space */
+  }
+  .col-md-7.overflow-auto, .col-md-5 {
+    height: 100%; /* Ensure columns fill height */
+    max-height: 100vh; /* Prevent content from overflowing viewport */
+  }
+</style>
+
+<script>
+  document.querySelectorAll('.seat.available').forEach(div => {
+    div.addEventListener('click', () => {
+      document.getElementById('seatInput').value = div.dataset.seat;
+      // You can add a confirmation dialog here if you want before submitting
+      // if (confirm("선택하신 좌석으로 예매를 진행하시겠습니까?")) {
+          document.getElementById('confirmForm').submit();
+      // }
+    });
+  });
+</script>
+{% endblock %}
