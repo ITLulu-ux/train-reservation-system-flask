@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+
+{% block content %}
+<div class="container-fluid h-100">
+  <div class="row h-100">
+
+    <!-- 왼쪽: 열차 리스트 -->
+    <div class="col-md-6 overflow-auto p-4 bg-white">
+      <h2 class="mb-4 text-center">기차 노선 정보</h2>
+
+      <div class="row row-cols-1 g-4">
+        {% for route in train_info %}
+        <div class="col">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h5 class="card-title">열차 번호: {{ route.train_no }}</h5>
+              <p class="card-text">
+                <strong>출발역 → 도착역:</strong> {{ route.dep_station }} → {{ route.arr_station }}<br />
+                <strong>출발 / 도착 시간:</strong> {{ route.departure_time }} / {{ route.arrival_time }}<br />
+                <strong>총 좌석 수:</strong> {{ route.total_seats }}
+              </p>
+
+              {% set train_name_prefix = route.prefix %}
+              {% if train_name_prefix in ['KTX', '무궁화'] %}
+                <a href="{{ url_for('routes.seat_page', train_id=route.train_no) }}" class="btn btn-outline-primary mt-2">좌석 보기</a>
+              {% else %}
+                <p class="text-danger mt-2">예매 불가</p>
+              {% endif %}
+
+              {% if train_routes[train_name_prefix] is defined and train_routes[train_name_prefix] %}
+              <div class="route-map-container mt-3 p-2 border rounded bg-light">
+                <h6 class="mb-2">노선 안내:</h6>
+                <div id="route-map-{{ route.train_no | urlencode }}" class="route-map-svg"></div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-info mt-4">
+            {% for msg in messages %}
+              <p>{{ msg }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- 오른쪽: 안내 이미지 -->
+    <div class="col-md-6 d-none d-md-block p-0">
+        <div class="h-100 w-100" style="
+        background-image: url('https://www.mcnews.co.kr/imgdata/mcnews_kr/202303/2023033032358892.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        ">
+        </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="application/json" id="train-routes-data">
+  {{ train_routes | tojson }}
+</script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  .container-fluid.h-100 { min-height: 100vh; display: flex; flex-direction: column; }
+  .row.h-100 { flex-grow: 1; }
+  .col-md-6.overflow-auto, .col-md-6.p-4 { height: 100%; max-height: 100vh; }
+
+  .route-map-container {
+    width: 100%;
+    overflow-x: auto;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .route-map-svg svg {
+    width: 100%;
+    min-width: 300px;
+    height: 60px;
+  }
+
+  .route-line {
+    stroke: #007bff;
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+
+  .station-circle {
+    fill: #007bff;
+    stroke: #fff;
+    stroke-width: 2;
+  }
+
+  .station-text {
+    font-family: "Inter", sans-serif;
+    font-size: 10px;
+    fill: #333;
+    text-anchor: middle;
+    dominant-baseline: hanging;
+  }
+</style>
+
+<script>
+  function drawTrainRoute(containerId, stations) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const stationSpacing = 80;
+    const calculatedSvgWidth = stations.length > 1 ? (stations.length - 1) * stationSpacing + 40 : 100;
+    const svgWidth = Math.max(container.offsetWidth, calculatedSvgWidth);
+    const svgHeight = 60;
+    const marginX = 20;
+    const centerY = svgHeight / 2;
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", marginX);
+    line.setAttribute("y1", centerY);
+    line.setAttribute("x2", svgWidth - marginX);
+    line.setAttribute("y2", centerY);
+    line.setAttribute("class", "route-line");
+    svg.appendChild(line);
+
+    const stationCount = stations.length;
+    stations.forEach((station, index) => {
+      const x = stationCount > 1 ? marginX + (svgWidth - 2 * marginX) * (index / (stationCount - 1)) : svgWidth / 2;
+      const y = centerY;
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", 6);
+      circle.setAttribute("class", "station-circle");
+      if (index === 0) circle.style.fill = "#28a745";
+      else if (index === stationCount - 1) circle.style.fill = "#dc3545";
+      svg.appendChild(circle);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", x);
+      text.setAttribute("y", y + 15);
+      text.setAttribute("class", "station-text");
+      text.textContent = station;
+      svg.appendChild(text);
+    });
+
+    container.appendChild(svg);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const trainRoutesScript = document.getElementById('train-routes-data');
+    let allTrainRoutes = {};
+    if (trainRoutesScript && trainRoutesScript.textContent) {
+      try {
+        allTrainRoutes = JSON.parse(trainRoutesScript.textContent);
+      } catch (e) {
+        console.error("노선 정보 파싱 오류:", e);
+      }
+    }
+
+    setTimeout(() => {
+      document.querySelectorAll('.route-map-svg').forEach(mapDiv => {
+        const encodedTrainNo = mapDiv.id.replace('route-map-', '');
+        const trainNo = decodeURIComponent(encodedTrainNo);
+
+        let prefix = "기타";
+        if (trainNo.startsWith("KTX")) prefix = "KTX";
+        else if (trainNo.startsWith("무궁화")) prefix = "무궁화";
+
+        if (allTrainRoutes[prefix]) {
+          drawTrainRoute(mapDiv.id, allTrainRoutes[prefix]);
+        }
+      });
+    }, 100);
+  });
+</script>
+{% endblock %}
